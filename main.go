@@ -4,7 +4,6 @@ import (
 	"encoding/base32"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -43,7 +42,7 @@ func readSecretFromFile(filePath string) (string, error) {
 	ext := strings.ToLower(filepath.Ext(filePath))
 
 	// Read the file
-	data, err := ioutil.ReadFile(filePath)
+	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read file: %v", err)
 	}
@@ -83,7 +82,7 @@ func saveProviders(providers []Provider, filePath string) error {
 	}
 
 	// Write the JSON to the file
-	if err := ioutil.WriteFile(filePath, data, 0644); err != nil {
+	if err := os.WriteFile(filePath, data, 0644); err != nil {
 		return fmt.Errorf("failed to write file: %v", err)
 	}
 
@@ -99,7 +98,7 @@ func loadProviders(filePath string) ([]Provider, error) {
 	}
 
 	// Read the file
-	data, err := ioutil.ReadFile(filePath)
+	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %v", err)
 	}
@@ -215,6 +214,32 @@ func main() {
 		AddInputField("Provider Name", "", 20, nil, nil).
 		AddInputField("Secret", "", 40, nil, nil).
 		AddInputField("File Path", "", 40, nil, nil).
+		AddButton("Browse...", func() {
+			// Get the current file path from the form
+			currentPath := newProviderForm.GetFormItem(2).(*tview.InputField).GetText()
+
+			// If the path is empty, use the current directory
+			if currentPath == "" {
+				var err error
+				currentPath, err = os.Getwd()
+				if err != nil {
+					// Escape any square brackets in the error message
+					escapedError := strings.ReplaceAll(strings.ReplaceAll(err.Error(), "[", "[["), "]", "]]")
+					otpView.SetText(fmt.Sprintf("[red]Error: %s[white]", escapedError))
+					return
+				}
+			}
+
+			// Show the file picker
+			ShowFilePicker(app, currentPath, func(selectedPath string) {
+				// Set the selected path in the file path input field
+				newProviderForm.GetFormItem(2).(*tview.InputField).SetText(selectedPath)
+
+				// Escape any square brackets in the file path
+				escapedFilePath := strings.ReplaceAll(strings.ReplaceAll(selectedPath, "[", "[["), "]", "]]")
+				otpView.SetText(fmt.Sprintf("[green]Selected file: [yellow]%s[white]", escapedFilePath))
+			})
+		}).
 		AddButton("Read Secret from File", func() {
 			// Get the file path from the form
 			filePath := newProviderForm.GetFormItem(2).(*tview.InputField).GetText()
